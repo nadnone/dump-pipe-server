@@ -1,4 +1,4 @@
-use std::{fs::{File, exists}, io::Write};
+use std::{fs::{File}, io::Write, thread::sleep, time::Duration};
 
 use chrono::Local;
 
@@ -16,21 +16,14 @@ impl LogsManager {
         let filename = format!("./logs_{}.txt", date_now);
 
 
-        let mut _log_file;
-
-        if !exists(&filename).is_ok()
-        {
-            _log_file = File::create(filename.as_str()).expect("[!] Impossible de créer le fichier de logs pour aujourd'hui, CRASH !");
-            _log_file = File::open(filename).expect("Impossible d'ouvrir le fichier créer, CRASH !");
-        }
-        else {
-
-            _log_file = File::options()
-                .append(true)
-                .open(filename)
-                .expect(format!("impossible d'ouvrir dans le fichier log_{}.txt", date_now.as_str()).as_str());
+        let mut _log_file = File::options()
+            .create(true)
+            .append(true)
+            .open(filename)
+            .expect(format!("impossible d'ouvrir le fichier log_{}.txt", date_now.as_str()).as_str());
         
-        }
+
+        sleep(Duration::from_millis(500));
 
         let log_to_append = format!("[{}][{}] : {}\n", time_now, date_now, message);
         _log_file.write_all(log_to_append.as_bytes()).expect("Erreur d'ecriture des logs");

@@ -18,7 +18,7 @@ impl SocketsConnector {
         self.socket_list.push(Arc::new(socket));
     }
 
-    pub fn connect_to(&mut self, destination: String, current_socket: &TcpStream) {
+    pub fn connect_to(&mut self, destination: String, mut current_socket: &TcpStream) {
 
 
         for i in 0..self.socket_list.len() {
@@ -30,6 +30,7 @@ impl SocketsConnector {
                 sock.peer_addr().unwrap().port() == current_socket.peer_addr().unwrap().port()
             {
                 // pas besoin de se connecter à soi-même
+                let _ = current_socket.write_all("Same address, abort.".as_bytes());
                 LogsManager::appends_log("[!] Same address, abort.".to_string());
                 continue;
             }
@@ -37,7 +38,6 @@ impl SocketsConnector {
             {
 
                 let curr_sock = current_socket.try_clone();
-
                 if curr_sock.is_err() {
                     return;
                 }

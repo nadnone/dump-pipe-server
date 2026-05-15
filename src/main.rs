@@ -72,7 +72,7 @@ fn main() -> std::io::Result<()> {
     let mut socket_connector = SocketsConnector::create();
 
 
-    let listener = TcpListener::bind("127.0.0.1:44444").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:44444").unwrap();
 
     loop {
 

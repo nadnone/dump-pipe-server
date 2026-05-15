@@ -13,7 +13,7 @@ impl LogsManager {
 
         let date_now = Local::now().format("%Y-%m-%d").to_string();
         let time_now = Local::now().format("%H:%M:%S").to_string();
-        let filename = format!("logs_{}.txt", date_now);
+        let filename = format!("./logs_{}.txt", date_now);
 
 
         let mut _log_file;

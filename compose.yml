@@ -1,0 +1,10 @@
+services:
+  dump-pipe-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dump-pipe-server:latest
+    container_name: dump-pipe-server
+    restart: unless-stopped
+    ports:
+      - 44444:44444

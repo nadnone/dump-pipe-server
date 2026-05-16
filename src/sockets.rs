@@ -1,6 +1,7 @@
-use std::{io::{BufRead, BufReader, Write}, net::TcpStream, sync::Arc, thread};
-use crate::logs_manager::{LogsManager};
+use std::{io::{BufRead, BufReader, Write}, net::TcpStream, sync::Arc};
+use crate::{constants::Errors, logs_manager::LogsManager};
 
+#[derive(Clone)]
 pub struct SocketsConnector {
     socket_list: Vec<Arc<TcpStream>>
 }
@@ -11,6 +12,10 @@ impl SocketsConnector {
         return SocketsConnector {
             socket_list: Vec::new()
         }
+    }
+
+    pub fn copy(&self) -> SocketsConnector {
+        return SocketsConnector { socket_list: self.socket_list.clone() };
     }
 
     pub fn add_to_socketlist(&mut self, socket: TcpStream) {
@@ -25,12 +30,11 @@ impl SocketsConnector {
 
             let sock = &self.socket_list[i];
 
-            
             if sock.peer_addr().unwrap().ip() == current_socket.peer_addr().unwrap().ip() &&
                 sock.peer_addr().unwrap().port() == current_socket.peer_addr().unwrap().port()
             {
                 // pas besoin de se connecter à soi-même
-                let _ = current_socket.write_all("Same address, abort.".as_bytes());
+                let _ = current_socket.write_all("Same address, abort.\n".as_bytes());
                 LogsManager::appends_log("[!] Same address, abort.".to_string());
                 continue;
             }
@@ -55,14 +59,12 @@ impl SocketsConnector {
 
     fn spawn_new_thread(curr_sock: TcpStream, mut dest_sock: TcpStream) {
 
-        let sock = curr_sock.try_clone().expect("Erreur interen de clonage, socker.rs");
-
-        thread::spawn(move || {
+        let sock = curr_sock.try_clone().expect(Errors::FATAL.to_str());
 
             loop {
                 
-                let mut msg = String::new();
-                let mut reader =  BufReader::new(sock.try_clone().expect("Erreur interen de clonage, socker.rs"));
+                let mut msg: String = String::new();
+                let mut reader = BufReader::new(sock.try_clone().expect(Errors::FATAL.to_str()));
 
                 match reader.read_line( &mut msg) {
                     Ok(_) => {
@@ -82,9 +84,6 @@ impl SocketsConnector {
             }
             
           
-         
-
-        });
 
     }
 }

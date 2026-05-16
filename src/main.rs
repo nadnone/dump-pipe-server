@@ -1,11 +1,13 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::thread;
 
 mod logs_manager;
 mod sockets;
+mod constants;
 use crate::logs_manager::LogsManager;
 use crate::sockets::SocketsConnector;
-
+use crate::constants::Errors;
 
 fn handle_client(stream: TcpStream, socket_connector: &mut SocketsConnector) {
 
@@ -14,12 +16,17 @@ fn handle_client(stream: TcpStream, socket_connector: &mut SocketsConnector) {
 
     LogsManager::appends_log(format!("Connection de -> ip: {} port: {}", source.ip(), source.port()));
 
+    let mut sock = stream.try_clone().expect(Errors::FATAL.to_str());
 
+    let err = sock.write_all(format!("You address is: {}\n", source).as_bytes()).is_err();
+    if err {
+        LogsManager::appends_log(format!("Impossible d'écrire dans la socket : {}", source));
+    }
 
 
 
     let mut buffer = String::new();
-    let mut reader = BufReader::new(stream.try_clone().expect("erreur de clonage, erreur interne."));
+    let mut reader = BufReader::new(stream.try_clone().expect(Errors::FATAL.to_str()));
 
     if reader.read_line(&mut buffer).is_err() 
     {
@@ -51,7 +58,7 @@ fn handle_client(stream: TcpStream, socket_connector: &mut SocketsConnector) {
     match opcode.to_uppercase().as_str() {
         
         "CTO" => {
-            socket_connector.add_to_socketlist( stream.try_clone().expect("erreur interne de clonage.") );
+            socket_connector.add_to_socketlist( sock.try_clone().expect(Errors::FATAL.to_str()) );
             socket_connector.connect_to(destination.unwrap().to_string(), &stream );
         }
 
@@ -69,7 +76,7 @@ fn main() -> std::io::Result<()> {
 
     println!("Serveur en fonctionnement.");
 
-    let mut socket_connector = SocketsConnector::create();
+    let mut socket_connector_main = SocketsConnector::create();
 
 
     let listener = TcpListener::bind("0.0.0.0:44444").unwrap();
@@ -79,11 +86,26 @@ fn main() -> std::io::Result<()> {
 
         for stream in listener.incoming() {
 
+
             if stream.is_err() {
-                LogsManager::appends_log("Coonnexion morte".to_string());
+                LogsManager::appends_log(format!("{} : Connexion morte", Errors::WARN.to_str()).to_string());
             }
 
-            handle_client(stream?, &mut socket_connector);
+            // on clone les élements à mettre dans le thread
+            let sock = stream?.try_clone().expect(Errors::FATAL.to_str());
+            
+            // on push la socket à la liste
+            socket_connector_main.add_to_socketlist(sock.try_clone().expect(Errors::FATAL.to_str()));
+
+            let mut socket_connector = socket_connector_main.copy();
+            
+            // le thread
+            thread::spawn(move || {
+            
+                handle_client(sock, &mut socket_connector);
+
+            });
+
             
         }
         

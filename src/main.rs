@@ -1,6 +1,6 @@
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::thread;
+use std::{thread};
 
 mod logs_manager;
 mod sockets;
@@ -28,43 +28,51 @@ fn handle_client(stream: TcpStream, socket_connector: &mut SocketsConnector) {
     let mut buffer = String::new();
     let mut reader = BufReader::new(stream.try_clone().expect(Errors::FATAL.to_str()));
 
-    if reader.read_line(&mut buffer).is_err() 
-    {
-        println!("[!] erreur de lecture de destination pour {}", source);
-        return;
-    }
 
-    if buffer.is_empty() {
-        println!("[!] Error empty order");
-        return;
-    }
+    for essais in 0..5 {
 
-
-    let command = buffer.split_whitespace().nth(0);
-    if command.is_none() {
-        println!("[!] Aucun opcode !");
-        return;
-    }
-
-    let destination = buffer.split_whitespace().nth(1);
-    if destination.is_none()
-    {
-        println!("[!] Aucune adresse");
-        return;
-    }
-
-    let opcode = command.unwrap();
-
-    match opcode.to_uppercase().as_str() {
+        let _ = stream.try_clone().unwrap().write_all(format!("Vous avez {} essais.\n", 5 - essais ).as_bytes());     
         
-        "CTO" => {
-            socket_connector.add_to_socketlist( sock.try_clone().expect(Errors::FATAL.to_str()) );
-            socket_connector.connect_to(destination.unwrap().to_string(), &stream );
+        if reader.read_line(&mut buffer).is_err() 
+        {
+            println!("[!] erreur de lecture de destination pour {}", source);
+            return;
         }
 
-        _ => {
-
+        if buffer.is_empty() {
+            let _ = stream.try_clone().unwrap().write_all("Ordre inconnu".as_bytes());
+            println!("[!] Error empty order");
+            continue;
         }
+
+
+        let command = buffer.split_whitespace().nth(0);
+        if command.is_none() {
+            let _ = stream.try_clone().unwrap().write_all("[!] Aucun opcode !\n".as_bytes());
+            continue;
+        }
+
+        let destination = buffer.split_whitespace().nth(1);
+        if destination.is_none()
+        {
+            let _ = stream.try_clone().unwrap().write_all("[!] Aucune adresse !\n".as_bytes());
+            continue;
+        }
+
+        let opcode = command.unwrap();
+
+        match opcode.to_uppercase().as_str() {
+            
+            "CTO" => {
+                socket_connector.add_to_socketlist( sock.try_clone().expect(Errors::FATAL.to_str()) );
+                socket_connector.connect_to(destination.unwrap().to_string(), &stream );
+            }
+
+            _ => {
+
+            }
+        }
+
     }
 
 }

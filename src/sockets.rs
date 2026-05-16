@@ -1,9 +1,9 @@
-use std::{io::{BufRead, BufReader, Write}, net::TcpStream, sync::Arc};
+use std::{io::{BufRead, BufReader, Write}, net::TcpStream, sync::{Arc, Mutex}};
 use crate::{constants::Errors, logs_manager::LogsManager};
 
 #[derive(Clone)]
 pub struct SocketsConnector {
-    socket_list: Vec<Arc<TcpStream>>
+    socket_list: Vec<Arc<Mutex<TcpStream>>>
 }
 
 impl SocketsConnector {
@@ -20,7 +20,7 @@ impl SocketsConnector {
 
     pub fn add_to_socketlist(&mut self, socket: TcpStream) {
 
-        self.socket_list.push(Arc::new(socket));
+        self.socket_list.push(Arc::new(Mutex::new(socket)));
     }
 
     pub fn connect_to(&mut self, destination: String, mut current_socket: &TcpStream) {
@@ -28,17 +28,27 @@ impl SocketsConnector {
 
         for i in 0..self.socket_list.len() {
 
-            let sock = &self.socket_list[i];
+            let sock = self.socket_list[i].clone();
+            let sock_rslt = sock.lock().unwrap().peer_addr();
+            if sock_rslt.is_err()
+            {
+                LogsManager::appends_log(format!("{} : Erreur inconnue avec la socket", Errors::FATAL.to_str()));
+                return;
+            }
+            let sock_addr = sock_rslt.unwrap().ip().to_string();
 
-            if sock.peer_addr().unwrap().ip() == current_socket.peer_addr().unwrap().ip() &&
-                sock.peer_addr().unwrap().port() == current_socket.peer_addr().unwrap().port()
+            let curr_sock: String = current_socket.peer_addr().unwrap().ip().to_string();
+
+            // si la destination est al même que la source
+            if destination == curr_sock
             {
                 // pas besoin de se connecter à soi-même
                 let _ = current_socket.write_all("Same address, abort.\n".as_bytes());
                 LogsManager::appends_log("[!] Same address, abort.".to_string());
                 continue;
             }
-            else if sock.peer_addr().unwrap().ip().to_string() == destination 
+            // si la socket de destination a été trouvée
+            else if sock_addr == destination 
             {
 
                 let curr_sock = current_socket.try_clone();
@@ -47,7 +57,7 @@ impl SocketsConnector {
                 }
 
                 // spawn
-                Self::spawn_new_thread(curr_sock.unwrap().try_clone().unwrap(), sock.try_clone().unwrap());
+                Self::spawn_new_thread(curr_sock.unwrap().try_clone().unwrap(), sock.lock().unwrap().try_clone().unwrap());
             }
 
 
@@ -57,9 +67,14 @@ impl SocketsConnector {
 
     }
 
-    fn spawn_new_thread(curr_sock: TcpStream, mut dest_sock: TcpStream) {
+    fn spawn_new_thread(mut curr_sock: TcpStream, mut dest_sock: TcpStream) {
 
         let sock = curr_sock.try_clone().expect(Errors::FATAL.to_str());
+
+        let destination = dest_sock.peer_addr().unwrap().ip().to_string();
+        let source = curr_sock.peer_addr().unwrap().ip().to_string();
+        let _ = curr_sock.write_all(format!("Mise en relation avec {}\n", destination).as_bytes());
+        LogsManager::appends_log(format!("Mise en relation de {} avec {}", source, destination));
 
             loop {
                 
